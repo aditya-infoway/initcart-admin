@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+* {
+  /* margin: 0px;
+  padding: 0px; */
+  box-sizing: border-box;
+}
+
+.customInput {
+  background-color: #f5f7f9;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  width: 100%;
+  outline: none;
+  border: 1px solid transparent;
+  border-left: 5px solid #fb2c36;
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); /* shadow-inner */
+  transition-property: box-shadow; /* transition-shadow */
+  transition-duration: 300ms; /* duration-300 */
+}
+
+.customInput:not(:placeholder-shown),
+.customInput.filled {
+  border-left-color: #0165ff;
+}
+
+/* Keep file/date red until a value is selected */
+.customInput[type="file"]:not(.filled),
+.customInput[type="date"]:not(.filled) {
+  border-left-color: #fb2c36; /* red if not chosen */
+}
+.customInput[type="select"]:not(.filled) {
+  border-left-color: #fb2c36; /* red if not chosen */
+}
+
+.customInputError {
+  background-color: #f5f7f9;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  width: 100%;
+  outline: none;
+  border: none;
+  /* border-top: 1px solid #fb2c36;
+  border-bottom: 1px solid #fb2c36;
+  border-right: 1px solid #fb2c36; */
+  border-left: 5px solid #fb2c36;
+
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); /* shadow-inner */
+  transition-property: box-shadow; /* transition-shadow */
+  transition-duration: 300ms; /* duration-300 */
+}
+
+.customInput::placeholder {
+  color: #000;
+  font-weight: 500;
+}
+
+.customInputError::placeholder {
+  color: #000;
+  font-weight: 500;
+}
+
+.customBtn {
+  background-color: #0165ff;
+  color: #ffffff;
+  text-align: center;
+  padding: 13px 0px;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.25s ease-in-out;
+  width: 100%;
+  cursor: pointer;
+}
+
+.customSelect {
+  background-color: #f5f7f9;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  width: 100%;
+  outline: none;
+  border-left: 5px solid #fb2c36; /* default red */
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+  transition: border-left-color 0.3s, box-shadow 0.3s;
+}
+
+.customBtn:hover {
+  background-color: #0053cf;
+}
+
+/* Blue when a value is selected */
+.customSelect.filled {
+  border-left-color: #0165ff;
+}
+
+/* Error state */
+.customSelectError {
+  border-left-color: #fb2c36;
+}
+
+/* .customBtn {
+            transition: all 0.3s ease;
+            background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .customBtn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(90deg, #1e40af, #60a5fa);
+          }
+          .customSelect {
+            transition: all 0.3s ease;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            background-color: #f9fafb;
+          }
+          .customSelect.filled {
+            background-color: #ffffff;
+            border-color: #3b82f6;
+          }
+          .customSelectError {
+            border-color: #ef4444;
+          }
+          .modal-overlay {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+          }
+          .modal-content {
+            animation: slideIn 0.3s ease-out;
+          }
+          @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          .card-shadow {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+          }
+          .table-row-hover:hover {
+            background-color: #f1f5f9;
+            transition: background-color 0.2s ease;
+          } */
+
+/* Hide scrollbar but keep scrolling functional */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
