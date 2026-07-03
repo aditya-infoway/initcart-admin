@@ -26,6 +26,7 @@ interface Vendor {
   status: "Active" | "Inactive" | "Pending Verification";
 }
 
+
 const VendorSchema = Yup.object().shape({
   businessName: Yup.string().required("Business Name is required"),
   ownerName: Yup.string().required("Owner Name is required"),
