@@ -69,7 +69,6 @@ import CommissionCriteriaSetup from "../pages/MLM (Multi Level Marketing System)
 import CommissionDistributionRules from "../pages/MLM (Multi Level Marketing System)/Commission Setup/CommissionDistributionRules";
 import CommissionReports from "../pages/MLM (Multi Level Marketing System)/Commission Setup/CommissionReports";
 import AgentSalesEntry from "../pages/MLM (Multi Level Marketing System)/Transactions/AgentSalesEntry";
-import AgentSaleVerification from "../pages/MLM (Multi Level Marketing System)/Transactions/AgentSaleVerification";
 import WithdrawalRequests from "../pages/MLM (Multi Level Marketing System)/Transactions/WithdrawalRequests";
 import AgentSalesReport from "../pages/MLM (Multi Level Marketing System)/Reports/AgentSalesReport";
 import LevelWiseCommissionReport from "../pages/MLM (Multi Level Marketing System)/Reports/LevelWiseCommissionReport";
@@ -296,10 +295,7 @@ const AppRouter = () => (
         <Route path="/commission/reports" element={<CommissionReports />} />
 
         <Route path="/transactions/sales-entry" element={<AgentSalesEntry />} />
-        <Route
-          path="/transactions/verification"
-          element={<AgentSaleVerification />}
-        />
+
         <Route path="/transactions/payouts" element={<AdminMLMDashboard />} />
         <Route
           path="/transactions/withdrawals"

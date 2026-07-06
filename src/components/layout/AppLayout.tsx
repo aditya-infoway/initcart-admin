@@ -148,10 +148,10 @@ export const menuItems: MenuCategory[] = [
           { name: "Create Vendor", to: "/productvendor" },
           { name: "Vendor List", to: "/productvendor-list" },
           { name: "Vendor Approval Requests", to: "/productvendor-requests" },
-          {
-            name: "Vendor Wallet & Withdrawal Requests",
-            to: "/productvendor-walletwithdrawals",
-          },
+          // {
+          //   name: "Vendor Wallet & Withdrawal Requests",
+          //   to: "/productvendor-walletwithdrawals",
+          // },
           { name: "Brand creation", to: "/productvendor-brandcreation" },
         ],
       },
@@ -174,7 +174,7 @@ export const menuItems: MenuCategory[] = [
         icon: <FaBoxes size={20} />,
         submenu: [
           {
-            name: "Product List verification for every vendor",
+            name: "Product Verification",
             to: "/productverification",
           },
           {
@@ -243,17 +243,10 @@ export const menuItems: MenuCategory[] = [
     category: "Service Subscription Platform",
     items: [
       {
-        title: "Vendors",
+        title: "Subscription management",
         icon: <RiUserSettingsLine size={20} />,
-        submenu: [
-          { name: "Create Service Vendor (Admin)", to: "/createservicevendor" },
-          { name: "Service Vendor List", to: "/servicevendorlist" },
-          { name: "Create Subscription ", to: "/admin/subscriptions" },
-          {
-            name: "Vendor Wallet & Withdrawals",
-            to: "/servicevendor-walletwithdrawals",
-          },
-        ],
+        to:"/admin/subscriptions",
+        submenu: [],
       },
       {
         title: "Services",
@@ -264,18 +257,18 @@ export const menuItems: MenuCategory[] = [
             submenu: [
               { name: "Service Categories", to: "/servicecategories" },
               { name: "Service Sub Categories", to: "/servicesubcategories" },
-              { name: "Service Tags", to: "/servicetags" },
-              { name: "Service Approval Requests", to: "/properties" }
+              
+             
             ],
           },
           { name: "Service Inquiries", to: "/serviceinquiry" },
-          { name: "Service List", to: "/servicelist" },
+          // { name: "Service List", to: "/servicelist" },
           { name: "Flash Deal Participation", to: "/flashdealparticipation" },
           { name: "Featured Services", to: "/featuredservices" },
         ],
       },
       {
-        title: "Service Approval List",
+        title: "Service Approval Requests",
         icon: <MdOutlineLocalOffer size={20} />,
         to: "/allserviclist",
         submenu: [],
@@ -284,17 +277,17 @@ export const menuItems: MenuCategory[] = [
         title: "Marketing Banners",
         icon: <MdOutlineAdsClick size={20} />,
         submenu: [
-          { name: "Gym Marketing Banners", to: "/gymmarketingbanners" },
-          { name: "Saloon Marketing Banners", to: "/saloonmarketingbanners" },
-          { name: "Travel Agency Marketing Banners", to: "/travelagencymarketingbanners" },
-          { name: "Real Estate Marketing Banners", to: "/realestatemarketingbanners" },
-          {name: "Tech Industry Marketing Banners" , to:"/techmarketingbanners"},
-          {name: "Professional Marketing Banners" , to:"/professionalmarketingbanners"},
-          {name: "Finance Marketing Banners" , to:"/financeAds"},
-          {name: "Healthcare Marketing Banners", to: "/HealthcareAds"},
-          {name: "Education Marketing Banners", to: "/EducationAds"},
-          {name: "Restaurant Marketing Banners", to: "/restaurantAds"},
-          {name: "Hotel Marketing Banners", to: "/HotelAds"},
+          { name: "Gym", to: "/gymmarketingbanners" },
+          { name: "Saloon", to: "/saloonmarketingbanners" },
+          { name: "Travel Agency", to: "/travelagencymarketingbanners" },
+          { name: "Real Estate", to: "/realestatemarketingbanners" },
+          {name: "Tech Industry" , to:"/techmarketingbanners"},
+          {name: "Professional" , to:"/professionalmarketingbanners"},
+          {name: "Finance" , to:"/financeAds"},
+          {name: "Healthcare", to: "/HealthcareAds"},
+          {name: "Education", to: "/EducationAds"},
+          {name: "Restaurant", to: "/restaurantAds"},
+          {name: "Hotel", to: "/HotelAds"},
         ],  
       },
       {
@@ -316,15 +309,15 @@ export const menuItems: MenuCategory[] = [
           { name: "Vendor Earnings Report", to: "/reports/vendorearningreport" },
         ],
       },
-      {
-        title: "Settings",
-        icon: <AiOutlineSetting size={20} />,
-        submenu: [
-          { name: "Subscription Plan Setup", to: "/plancreation" },
-          { name: "Service Plan Renewal Requests", to: "/planrenewalrequests" },
-          { name: "Service Plan Expiry Notifications", to: "/planexpirynotifications" },
-        ],
-      },
+      // {
+      //   title: "Settings",
+      //   icon: <AiOutlineSetting size={20} />,
+      //   submenu: [
+      //     // { name: "Subscription Plan Setup", to: "/plancreation" },
+      //     // { name: "Service Plan Renewal Requests", to: "/planrenewalrequests" },
+      //     { name: "Service Plan Expiry Notifications", to: "/planexpirynotifications" },
+      //   ],
+      // },
     ],
   },
   {
@@ -335,20 +328,16 @@ export const menuItems: MenuCategory[] = [
         icon: <RiGroupLine size={20} />,
         submenu: [
           { name: "Create Agent", to: "/createagent" },
-          { name: "Agent List", to: "/agentlist" },
           { name: "Agent Hierarchy Tree View", to: "/agenthierarchytreeview" },
           { name: "Agent Approval", to: "/agentApproval" },
 
         ],
       },
       {
-        title: "Commission",
+        title: "Commission Reports",
         icon: <MdOutlineAttachMoney size={20} />,
-        submenu: [
-          { name: "Commission Criteria Setup", to: "/commission/criteria" },
-          { name: "Commission Distribution Rules", to: "/commission/rules" },
-          { name: "Commission Reports", to: "/commission/reports" },
-        ],
+        to:"/commission/reports",
+        submenu: [],
       },
       {
         title: "Profit Distribution",
@@ -366,9 +355,8 @@ export const menuItems: MenuCategory[] = [
         title: "Transactions",
         icon: <FaExchangeAlt size={20} />,
         submenu: [
-          { name: "Agent Sales Entry", to: "/transactions/sales-entry" },
-          { name: "Agent Sale Verification", to: "/transactions/verification" },
-          { name: "Commission Payouts", to: "/transactions/payouts" },
+          // { name: "Agent Sales Entry", to: "/transactions/sales-entry" },
+    
           { name: "Withdrawal Requests", to: "/transactions/withdrawals" },
           // {
           //   name: "Withdrawal Requests ",
@@ -383,8 +371,8 @@ export const menuItems: MenuCategory[] = [
         title: "Reports",
         icon: <TbReportAnalytics size={20} />,
         submenu: [
-          { name: "Agent Sales Report", to: "/reports/agent-sales" },
-          { name: "Level-wise Commission Report", to: "/reports/level-commission" },
+          // { name: "Agent Sales Report", to: "/reports/agent-sales" },
+          // { name: "Level-wise Commission Report", to: "/reports/level-commission" },
           // { name: "Agent Hierarchy Tree View", to: "" },
           {
             name: "Payout History",
@@ -392,14 +380,14 @@ export const menuItems: MenuCategory[] = [
           },
         ],
       },
-      {
-        title: "Settings",
-        icon: <AiOutlineSetting size={20} />,
-        submenu: [
-          { name: "Level Configuration", to: "/settings/levels" },
-          { name: "Referral Code Settings", to: "/settings/referral" },
-        ],
-      },
+      // {
+      //   title: "Settings",
+      //   icon: <AiOutlineSetting size={20} />,
+      //   submenu: [
+      //     { name: "Level Configuration", to: "/settings/levels" },
+      //     { name: "Referral Code Settings", to: "/settings/referral" },
+      //   ],
+      // },
     ],
   },
   {
@@ -409,14 +397,14 @@ export const menuItems: MenuCategory[] = [
         title: "Master",
         icon: <FaCogs size={20} />,
         submenu: [
-          { name: "Account Group Master", to: "/accountgroupmaster" },
-          { name: "Group Master", to: "/groupmaster" },
-          { name: "Unit Master", to: "/unitmaster" },
-          { name: "Item Master", to: "/itemmaster" },
-          { name: "Accounts master", to: "/accountmaster" },
+          // { name: "Account Group Master", to: "/accountgroupmaster" },
+          // { name: "Group Master", to: "/groupmaster" },
+          // { name: "Unit Master", to: "/unitmaster" },
+          // { name: "Item Master", to: "/itemmaster" },
+          // { name: "Accounts master", to: "/accountmaster" },
           { name: "Branch Master", to: "/branchmaster" },
-          { name: "Tax Master", to: "/taxmaster" },
-          { name: "Bank Master", to: "/bankmaster" },
+          // { name: "Tax Master", to: "/taxmaster" },
+          // { name: "Bank Master", to: "/bankmaster" },
         ],
       },
             {
@@ -426,64 +414,64 @@ export const menuItems: MenuCategory[] = [
           { name: "Item Varification", to: "/itemProductApproval" },
         ],
       },
-      {
-        title: "Transactions",
-        icon: <FaExchangeAlt size={20} />,
-        submenu: [
-          { name: "Purchase Entry", to: "/purchaseentry" },
-          { name: "Purchase Verify", to: "/purchaseverify" },
-          { name: "Purchase Order", to: "/purchaseorder" },
-          { name: "Purchase Return", to: "/purchasereturn" },
-          { name: "Sale Entry", to: "/saleentry" },
-          { name: "Sale Return", to: "/salereturn" },
-          { name: "Quick Payment", to: "/quickpayment" },
-          { name: "Quick Receipt", to: "/quickreceipt" },
-          { name: "Debit Note", to: "/debitnote" },
-          { name: "Credit Note", to: "/creditnote" },
-          { name: "Cash Band Transactions", to: "/cashbanktransactions" },
-          // { name: "Order Generate (Purchase Order)", to: "#" },
-          // { name: "Purchase Return", to: "#" },
-          // { name: "Sale Entry", to: "#" },
-          // { name: "Sale Return", to: "#" },
-          // { name: "Quick Payment", to: "#" },
-          // { name: "Debit Note", to: "#" },
-          // { name: "Quick Receipt", to: "#" },
-          // { name: "Credit Note", to: "#" },
-          // { name: "Cash & Bank Transactions", to: "#" },
-          // { name: "Branch Stock Transfer", to: "#" },
-        ],
-      },
-      {
-        title: "Reports",
-        icon: <TbReportAnalytics size={20} />,
-        submenu: [
-          {
-            name: "Stock Reports",
-            submenu: [
-              { name: "Outstanding", to: "#" },
-              { name: "Ledger", to: "/ledgerreport" },
-              { name: "Sale Register", to: "#" },
-              { name: "Purchase Register", to: "#" },
-              { name: "Sale Return Register", to: "#" },
-              { name: "Purchase Return Register", to: "#" },
-              { name: "Debit Note Register", to: "#" },
-              { name: "Credit Note Register", to: "#" },
-              { name: "Quick Payment Register", to: "#" },
-              { name: "Quick Receipt Register", to: "#" },
-            ],
-          },
-          {
-            name: "Financial Reports",
-            submenu: [
-              { name: "Day Book", to: "#" },
-              { name: "Cash Book", to: "#" },
-              { name: "Balance Sheet", to: "#" },
-              { name: "Profit & Loss Statement", to: "#" },
-              { name: "Trading Account", to: "#" },
-            ],
-          },
-        ],
-      },
+      // {
+      //   title: "Transactions",
+      //   icon: <FaExchangeAlt size={20} />,
+      //   submenu: [
+      //     { name: "Purchase Entry", to: "/purchaseentry" },
+      //     { name: "Purchase Verify", to: "/purchaseverify" },
+      //     { name: "Purchase Order", to: "/purchaseorder" },
+      //     { name: "Purchase Return", to: "/purchasereturn" },
+      //     { name: "Sale Entry", to: "/saleentry" },
+      //     { name: "Sale Return", to: "/salereturn" },
+      //     { name: "Quick Payment", to: "/quickpayment" },
+      //     { name: "Quick Receipt", to: "/quickreceipt" },
+      //     { name: "Debit Note", to: "/debitnote" },
+      //     { name: "Credit Note", to: "/creditnote" },
+      //     { name: "Cash Band Transactions", to: "/cashbanktransactions" },
+      //     // { name: "Order Generate (Purchase Order)", to: "#" },
+      //     // { name: "Purchase Return", to: "#" },
+      //     // { name: "Sale Entry", to: "#" },
+      //     // { name: "Sale Return", to: "#" },
+      //     // { name: "Quick Payment", to: "#" },
+      //     // { name: "Debit Note", to: "#" },
+      //     // { name: "Quick Receipt", to: "#" },
+      //     // { name: "Credit Note", to: "#" },
+      //     // { name: "Cash & Bank Transactions", to: "#" },
+      //     // { name: "Branch Stock Transfer", to: "#" },
+      //   ],
+      // },
+      // {
+      //   title: "Reports",
+      //   icon: <TbReportAnalytics size={20} />,
+      //   submenu: [
+      //     // {
+      //     //   name: "Stock Reports",
+      //     //   submenu: [
+      //     //     { name: "Outstanding", to: "#" },
+      //     //     { name: "Ledger", to: "/ledgerreport" },
+      //     //     { name: "Sale Register", to: "#" },
+      //     //     { name: "Purchase Register", to: "#" },
+      //     //     { name: "Sale Return Register", to: "#" },
+      //     //     { name: "Purchase Return Register", to: "#" },
+      //     //     { name: "Debit Note Register", to: "#" },
+      //     //     { name: "Credit Note Register", to: "#" },
+      //     //     { name: "Quick Payment Register", to: "#" },
+      //     //     { name: "Quick Receipt Register", to: "#" },
+      //     //   ],
+      //     // },
+      //     {
+      //       name: "Financial Reports",
+      //       submenu: [
+      //         { name: "Day Book", to: "#" },
+      //         { name: "Cash Book", to: "#" },
+      //         { name: "Balance Sheet", to: "#" },
+      //         { name: "Profit & Loss Statement", to: "#" },
+      //         { name: "Trading Account", to: "#" },
+      //       ],
+      //     },
+      //   ],
+      // },
       {
         title: "Analytics",
         icon: <BsGraphUp size={20} />,
@@ -493,16 +481,16 @@ export const menuItems: MenuCategory[] = [
           { name: "Branch-wise Stock Chart", to: "#" },
         ],
       },
-      {
-        title: "Settings",
-        icon: <AiOutlineSetting size={20} />,
-        submenu: [
-          { name: "Tax Configuration", to: "#" },
-          { name: "Currency Settings", to: "#" },
-          { name: "Payment Methods", to: "#" },
-          { name: "POS Terminals", to: "#" },
-        ],
-      },
+      // {
+      //   title: "Settings",
+      //   icon: <AiOutlineSetting size={20} />,
+      //   submenu: [
+      //     { name: "Tax Configuration", to: "#" },
+      //     { name: "Currency Settings", to: "#" },
+      //     { name: "Payment Methods", to: "#" },
+      //     { name: "POS Terminals", to: "#" },
+      //   ],
+      // },
     ],
   },
 
@@ -618,12 +606,12 @@ export const menuItems: MenuCategory[] = [
         to: "#",
         submenu: [],
       },
-      {
-        title: "Service Inquiry Trends",
-        icon: <MdOutlineReport size={20} />,
-        to: "#",
-        submenu: [],
-      },
+      // {
+      //   title: "Service Inquiry Trends",
+      //   icon: <MdOutlineReport size={20} />,
+      //   to: "#",
+      //   submenu: [],
+      // },
     ],
   },
 ];
