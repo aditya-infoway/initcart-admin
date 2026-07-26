@@ -328,7 +328,7 @@ export const menuItems: MenuCategory[] = [
         icon: <RiGroupLine size={20} />,
         submenu: [
           { name: "Create Agent", to: "/createagent" },
-          { name: "Agent Hierarchy Tree View", to: "/agenthierarchytreeview" },
+          { name: "Agent Hierarchy Tree View", to: "/MLMTreeView" },
           { name: "Agent Approval", to: "/agentApproval" },
 
         ],
@@ -732,6 +732,15 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                 >
                   Profile
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/Documents");
+                    setOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                >
+                  Documents
                 </button>
                 <button
                   onClick={() => {
