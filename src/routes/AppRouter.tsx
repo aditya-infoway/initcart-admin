@@ -128,6 +128,8 @@ import EducationAdsManager from "../pages/Service Subscription Platform/Services
 import OrderProfitReport from "../pages/E-Commerce (Multi-Vendor)/Orders/OrderProfitReport";
 import RestaurantAdsManager from "../pages/Service Subscription Platform/Services/RestaurantMarketingBanner";
 import HotelAdsManager from "../pages/Service Subscription Platform/Services/HotelMarketingBanner";
+import SuperAdminAgentHierarchy from "../pages/MLM (Multi Level Marketing System)/Reports/adminAgentHierarchy";
+import Documents from "../pages/Profile/Documents";
 
 const AppRouter = () => (
   <BrowserRouter basename="/superadmin">
@@ -283,7 +285,7 @@ const AppRouter = () => (
         <Route path="/agentApproval" element={<AgentApproval/>}/>
         <Route path="/profitDistribution" element={<ProfitDistributionSetup/>}/>
         <Route path="/mlmLevelSetup" element={<MLMLevelSetup/>} />
-
+        <Route path="/MLMTreeView" element={<SuperAdminAgentHierarchy/>}/> 
         <Route
           path="/commission/criteria"
           element={<CommissionCriteriaSetup />}
@@ -336,6 +338,7 @@ const AppRouter = () => (
         <Route path="/restaurantAds" element={<RestaurantAdsManager/>}/>
 
         <Route path="/ledgerreport" element={<LedgerReport />} />
+        <Route path="/Documents" element={<Documents/>}/>
 
 
         {/* <Route path="/servicevendor-walletwithdrawals" element={<ServiceVendorWalletWithdrawals />} /> */}
