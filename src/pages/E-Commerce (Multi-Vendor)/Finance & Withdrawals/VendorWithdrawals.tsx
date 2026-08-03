@@ -1,518 +1,432 @@
-import { useState } from "react";
-import { useFormik } from "formik";
+//payments/VendorPaymentApprovals.tsx
+import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
-import * as Yup from "yup";
 import DataTable from "../../../components/common/DataTable";
+import axiosInstance from "../../../api/apiClient";
 
-interface Withdrawal {
-  id: number;
-  vendor: string;
-  amount: number;
-  withdrawalDate: string;
-  approvedAmount: number | null;
-  paymentStatus: "Pending" | "Approved" | "Rejected" | "Paid";
-  referenceNo: string | null;
-  remarks: string;
+interface OrderRow {
+  order_id: number;
+  order_number: string;
+  created_at: string;
+  billing_name: string;
+  vendor_total: number;
+  platform_charge: number;
 }
 
-const WithdrawalSchema = Yup.object().shape({
-  vendor: Yup.string().required("Vendor is required"),
-  amount: Yup.number()
-    .min(1, "Amount must be at least 1")
-    .required("Amount is required"),
-  withdrawalDate: Yup.string().required("Request Date is required"),
-  paymentStatus: Yup.string().required("Payment Status is required"),
-  referenceNo: Yup.string().nullable(),
-  remarks: Yup.string(),
-});
+interface PaymentRequestRow {
+  id: number;
+  payment_request_id: string;
+  vendor_name: string;
+  date_from: string;
+  date_to: string;
+  total_order_amount: number;
+  online_platform_charge: number;
+  cod_platform_charge: number;
+  total_platform_charge: number;
+  release_payment_amount: number;
+  approved_order_amount: number;
+  approved_online_charge: number;
+  approved_amount: number;
+  status: "pending" | "approved" | "paid" | "rejected";
+  admin_remarks: string | null;
+  created_at: string;
+  orders_data?: OrderRow[];
+  approved_order_ids?: number[];
+}
 
-const VendorWithdrawals = () => {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([
-    {
-      id: 1,
-      vendor: "Elite Electronics",
-      amount: 50000,
-      withdrawalDate: "2025-10-15",
-      approvedAmount: null,
-      paymentStatus: "Pending",
-      referenceNo: null,
-      remarks: "Requested for vendor payout",
-    },
-    {
-      id: 2,
-      vendor: "TechTrend",
-      amount: 30000,
-      withdrawalDate: "2025-10-14",
-      approvedAmount: 30000,
-      paymentStatus: "Paid",
-      referenceNo: "REF123456",
-      remarks: "Payout completed",
-    },
-  ]);
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [editingWithdrawal, setEditingWithdrawal] = useState<Withdrawal | null>(
-    null
-  );
+const VendorPaymentApprovals = () => {
+  const [requests, setRequests] = useState<PaymentRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const handleAdd = () => {
-    setEditingWithdrawal(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [activeRequest, setActiveRequest] = useState<PaymentRequestRow | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
+  const [remarks, setRemarks] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [statusFilter]);
+
+  const fetchRequests = async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get("ecommerce/admin/payment-requests/", {
+        params: { status: statusFilter },
+      });
+      if (response.data.success) setRequests(response.data.data);
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Error", text: "Failed to load payment requests" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openDetail = async (item: PaymentRequestRow) => {
     setModalOpen(true);
-  };
-
-  const handleEdit = (item: Withdrawal) => {
-    setEditingWithdrawal(item);
-    setModalOpen(true);
-  };
-
-  const handleView = (item: Withdrawal) => {
-    Swal.fire({
-      title: `Withdrawal Request #${item.id}`,
-      html: `
-        <p><strong>Vendor:</strong> ${item.vendor}</p>
-        <p><strong>Amount:</strong> ₹${item.amount}</p>
-        <p><strong>Request Date:</strong> ${item.withdrawalDate}</p>
-        <p><strong>Approved Amount:</strong> ${
-          item.approvedAmount ? `₹${item.approvedAmount}` : "N/A"
-        }</p>
-        <p><strong>Payment Status:</strong> ${item.paymentStatus}</p>
-        <p><strong>Reference No:</strong> ${item.referenceNo || "N/A"}</p>
-        <p><strong>Remarks:</strong> ${item.remarks || "N/A"}</p>
-      `,
-      icon: "info",
-      confirmButtonText: "Close",
-    });
-  };
-
-  const handleApprove = (item: Withdrawal) => {
-    Swal.fire({
-      title: "Approve Withdrawal",
-      text: `Are you sure you want to approve the withdrawal of ₹${item.amount} for ${item.vendor}?`,
-      input: "number",
-      inputPlaceholder: "Enter approved amount",
-      inputAttributes: { min: "0", step: "1" },
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, approve it!",
-      cancelButtonText: "Cancel",
-    }).then((result) => {
-      if (result.isConfirmed && result.value) {
-        setWithdrawals(
-          withdrawals.map((w) =>
-            w.id === item.id
-              ? {
-                  ...w,
-                  paymentStatus: "Approved",
-                  approvedAmount: Number(result.value),
-                  referenceNo: `REF${Math.floor(
-                    100000 + Math.random() * 900000
-                  )}`,
-                  remarks: w.remarks || "Approved by admin",
-                }
-              : w
-          )
-        );
-        Swal.fire(
-          "Approved!",
-          `Withdrawal #${item.id} has been approved.`,
-          "success"
+    setModalLoading(true);
+    setRemarks("");
+    try {
+      const response = await axiosInstance.get(`ecommerce/admin/payment-requests/${item.id}/`);
+      if (response.data.success) {
+        const data = response.data.data;
+        setActiveRequest(data);
+        setSelectedOrderIds(
+          data.approved_order_ids?.length
+            ? data.approved_order_ids
+            : data.orders_data.map((o: OrderRow) => o.order_id)
         );
       }
-    });
-  };
-
-  const handleReject = (item: Withdrawal) => {
-    Swal.fire({
-      title: "Reject Withdrawal",
-      text: `Are you sure you want to reject the withdrawal for ${item.vendor}?`,
-      input: "text",
-      inputPlaceholder: "Enter rejection reason (optional)",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, reject it!",
-      cancelButtonText: "Cancel",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setWithdrawals(
-          withdrawals.map((w) =>
-            w.id === item.id
-              ? {
-                  ...w,
-                  paymentStatus: "Rejected",
-                  remarks: result.value || "Rejected by admin",
-                }
-              : w
-          )
-        );
-        Swal.fire(
-          "Rejected!",
-          `Withdrawal #${item.id} has been rejected.`,
-          "success"
-        );
-      }
-    });
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      vendor: editingWithdrawal ? editingWithdrawal.vendor : "",
-      amount: editingWithdrawal ? editingWithdrawal.amount : 0,
-      withdrawalDate: editingWithdrawal ? editingWithdrawal.withdrawalDate : "",
-      approvedAmount: editingWithdrawal
-        ? editingWithdrawal.approvedAmount
-        : null,
-      paymentStatus: editingWithdrawal
-        ? editingWithdrawal.paymentStatus
-        : "Pending",
-      referenceNo: editingWithdrawal ? editingWithdrawal.referenceNo : "",
-      remarks: editingWithdrawal ? editingWithdrawal.remarks : "",
-    },
-    enableReinitialize: true,
-    validationSchema: WithdrawalSchema,
-    onSubmit: (values) => {
-      if (editingWithdrawal) {
-        setWithdrawals(
-          withdrawals.map((w) =>
-            w.id === editingWithdrawal.id
-              ? {
-                  ...w,
-                  ...values,
-                  paymentStatus: values.paymentStatus as
-                    | "Pending"
-                    | "Approved"
-                    | "Rejected"
-                    | "Paid",
-                }
-              : w
-          )
-        );
-        Swal.fire({
-          icon: "success",
-          title: "Withdrawal Updated",
-          text: `Withdrawal #${editingWithdrawal.id} has been updated!`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      } else {
-        const newWithdrawal: Withdrawal = {
-          id: withdrawals.length + 1,
-          ...values,
-          approvedAmount: null,
-          paymentStatus: values.paymentStatus as
-            | "Pending"
-            | "Approved"
-            | "Rejected"
-            | "Paid",
-          referenceNo: null,
-        };
-        setWithdrawals([newWithdrawal, ...withdrawals]);
-        Swal.fire({
-          icon: "success",
-          title: "Withdrawal Added",
-          text: `Withdrawal #${newWithdrawal.id} has been added!`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      }
+    } catch {
+      Swal.fire({ icon: "error", title: "Error", text: "Failed to load request details" });
       setModalOpen(false);
-      formik.resetForm();
-    },
-  });
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const toggleOrder = (orderId: number) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const statusStyle = (statusVal: string) => {
+    switch (statusVal) {
+      case "paid": return "text-green-700 bg-green-50";
+      case "approved": return "text-blue-700 bg-blue-50";
+      case "rejected": return "text-red-700 bg-red-50";
+      default: return "text-yellow-700 bg-yellow-50";
+    }
+  };
+
+  const selectedPreview = () => {
+    if (!activeRequest?.orders_data) return { vendorTotal: 0, onlineCharge: 0, releaseAmount: 0 };
+    const selected = activeRequest.orders_data.filter((o) => selectedOrderIds.includes(o.order_id));
+    const vendorTotal = selected.reduce((s, o) => s + o.vendor_total, 0);
+    const onlineCharge = selected.reduce((s, o) => s + o.platform_charge, 0);
+    const releaseAmount = vendorTotal - onlineCharge - (activeRequest.cod_platform_charge || 0);
+    return { vendorTotal, onlineCharge, releaseAmount };
+  };
+
+  const handleApprove = async (full: boolean) => {
+    if (!activeRequest) return;
+    if (!full && selectedOrderIds.length === 0) {
+      Swal.fire({ icon: "warning", title: "Select at least one order" });
+      return;
+    }
+    const preview = selectedPreview();
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: full ? "Approve Full Request?" : "Approve Selected Orders?",
+      text: `Approved amount will be ${formatCurrency(preview.releaseAmount)}.`,
+      showCancelButton: true,
+      confirmButtonColor: "#2563eb",
+      confirmButtonText: "Approve",
+    });
+    if (!confirm.isConfirmed) return;
+
+    setActionLoading(true);
+    try {
+      const payload: any = { remarks };
+      if (!full) payload.approved_order_ids = selectedOrderIds;
+
+      const response = await axiosInstance.post(
+        `ecommerce/admin/payment-requests/${activeRequest.id}/approve/`,
+        payload
+      );
+      if (response.data.success) {
+        Swal.fire({ icon: "success", title: "Approved", timer: 1500, showConfirmButton: false });
+        setModalOpen(false);
+        fetchRequests();
+      }
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Error", text: error.response?.data?.message || "Approval failed" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!activeRequest) return;
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Reject Payment Request?",
+      text: "The orders in this request will become available for the vendor to re-request.",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      confirmButtonText: "Reject",
+    });
+    if (!confirm.isConfirmed) return;
+
+    setActionLoading(true);
+    try {
+      const response = await axiosInstance.post(
+        `ecommerce/admin/payment-requests/${activeRequest.id}/reject/`,
+        { remarks }
+      );
+      if (response.data.success) {
+        Swal.fire({ icon: "success", title: "Rejected", timer: 1500, showConfirmButton: false });
+        setModalOpen(false);
+        fetchRequests();
+      }
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Error", text: error.response?.data?.message || "Rejection failed" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!activeRequest) return;
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: "Mark as Paid?",
+      text: `Confirm that ${formatCurrency(activeRequest.approved_amount)} has been paid to the vendor.`,
+      showCancelButton: true,
+      confirmButtonColor: "#16a34a",
+      confirmButtonText: "Yes, Paid",
+    });
+    if (!confirm.isConfirmed) return;
+
+    setActionLoading(true);
+    try {
+      const response = await axiosInstance.post(`ecommerce/admin/payment-requests/${activeRequest.id}/mark-paid/`);
+      if (response.data.success) {
+        Swal.fire({ icon: "success", title: "Marked as Paid", timer: 1500, showConfirmButton: false });
+        setModalOpen(false);
+        fetchRequests();
+      }
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Error", text: error.response?.data?.message || "Failed to mark as paid" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const preview = selectedPreview();
 
   return (
-    <div className="">
+    <div className="p-4 md:p-6">
+      <div className="flex flex-wrap gap-2 mb-4">
+        {["all", "pending", "approved", "paid", "rejected"].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-colors ${
+              statusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       <DataTable
-        title="Vendor Withdrawals"
-        data={withdrawals}
+        title="Vendor Payment Requests"
+        data={requests}
+        loading={loading}
         columns={[
-          { key: "id", label: "Request ID" },
-          { key: "vendor", label: "Vendor" },
+          { key: "payment_request_id", label: "Request ID" },
+          { key: "vendor_name", label: "Vendor" },
           {
-            key: "amount",
-            label: "Amount",
-            render: (item: Withdrawal) => <span>₹{item.amount}</span>,
+            key: "date_range",
+            label: "Order Date Range",
+            render: (item: PaymentRequestRow) => `${formatDate(item.date_from)} - ${formatDate(item.date_to)}`,
           },
-          { key: "withdrawalDate", label: "Withdrawal Date" },
           {
-            key: "approvedAmount",
-            label: "Approved Amount",
-            render: (item: Withdrawal) => (
-              <span>
-                {item.approvedAmount ? `₹${item.approvedAmount}` : "N/A"}
+            key: "total_order_amount",
+            label: "Order Amount",
+            render: (item: PaymentRequestRow) => formatCurrency(item.total_order_amount),
+          },
+          {
+            key: "total_platform_charge",
+            label: "Platform Charge",
+            render: (item: PaymentRequestRow) => (
+              <span className="text-red-600">-{formatCurrency(item.total_platform_charge)}</span>
+            ),
+          },
+          {
+            key: "release_payment_amount",
+            label: "Requested Amount",
+            render: (item: PaymentRequestRow) => (
+              <span className="font-semibold">{formatCurrency(item.release_payment_amount)}</span>
+            ),
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (item: PaymentRequestRow) => (
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${statusStyle(item.status)}`}>
+                {item.status}
               </span>
             ),
           },
           {
-            key: "paymentStatus",
-            label: "Payment Status",
-            render: (item: Withdrawal) => (
-              <span
-                className={`text-sm font-semibold ${
-                  item.paymentStatus === "Paid" ||
-                  item.paymentStatus === "Approved"
-                    ? "text-green-700"
-                    : item.paymentStatus === "Rejected"
-                    ? "text-red-700"
-                    : "text-yellow-700"
-                }`}
+            key: "action",
+            label: "Action",
+            render: (item: PaymentRequestRow) => (
+              <button
+                onClick={() => openDetail(item)}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
               >
-                {item.paymentStatus}
-              </span>
+                Review
+              </button>
             ),
           },
-          {
-            key: "referenceNo",
-            label: "Reference No",
-            render: (item: Withdrawal) => (
-              <span>{item.referenceNo || "N/A"}</span>
-            ),
-          },
-          {
-            key: "remarks",
-            label: "Remarks",
-            render: (item: Withdrawal) => <span>{item.remarks || "N/A"}</span>,
-          },
-          // {
-          //   key: "action",
-          //   label: "Action",
-          //   render: (item: Withdrawal) => (
-          //     <div className="flex gap-2">
-          //       <button
-          //         onClick={() => handleView(item)}
-          //         className="px-2 py-1 bg-blue-500 text-white rounded"
-          //       >
-          //         View
-          //       </button>
-          //       <button
-          //         onClick={() => handleEdit(item)}
-          //         className="px-2 py-1 bg-yellow-500 text-white rounded"
-          //       >
-          //         Edit
-          //       </button>
-          //       {item.paymentStatus === "Pending" && (
-          //         <>
-          //           <button
-          //             onClick={() => handleApprove(item)}
-          //             className="px-2 py-1 bg-green-500 text-white rounded"
-          //           >
-          //             Approve
-          //           </button>
-          //           <button
-          //             onClick={() => handleReject(item)}
-          //             className="px-2 py-1 bg-red-500 text-white rounded"
-          //           >
-          //             Reject
-          //           </button>
-          //         </>
-          //       )}
-          //     </div>
-          //   ),
-          // },
         ]}
-        // onEdit={handleEdit}
-        // onApprove={handleApprove}
-        // onView={handleView}
-        // onReject={handleReject}
-        onAdd={handleAdd}
-        addButtonLabel="Add Withdrawal"
       />
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0000007d] px-3">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative overflow-y-auto max-h-[90vh]">
-            <h2 className="text-xl font-bold mb-6">
-              {editingWithdrawal ? "Edit Withdrawal" : "Add Withdrawal"}
-            </h2>
-            <form
-              onSubmit={formik.handleSubmit}
-              className="flex flex-col gap-4"
-            >
-              <div>
-                <label className="font-semibold text-gray-700">Vendor</label>
-                <input
-                  type="text"
-                  placeholder="Vendor"
-                  name="vendor"
-                  value={formik.values.vendor}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.touched.vendor && formik.errors.vendor
-                      ? "customInputError"
-                      : formik.values.vendor
-                      ? "filled"
-                      : ""
-                  }`}
-                  required
-                />
-                {formik.touched.vendor && formik.errors.vendor && (
-                  <div className="text-red-500 text-sm">
-                    {formik.errors.vendor}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">Amount</label>
-                <input
-                  type="number"
-                  placeholder="Amount"
-                  name="amount"
-                  value={formik.values.amount}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.touched.amount && formik.errors.amount
-                      ? "customInputError"
-                      : formik.values.amount > 0
-                      ? "filled"
-                      : ""
-                  }`}
-                  required
-                />
-                {formik.touched.amount && formik.errors.amount && (
-                  <div className="text-red-500 text-sm">
-                    {formik.errors.amount}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">
-                  Withdrawal Date
-                </label>
-                <input
-                  type="date"
-                  name="withdrawalDate"
-                  value={formik.values.withdrawalDate}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.touched.withdrawalDate && formik.errors.withdrawalDate
-                      ? "customInputError"
-                      : formik.values.withdrawalDate
-                      ? "filled"
-                      : ""
-                  }`}
-                  required
-                />
-                {formik.touched.withdrawalDate && formik.errors.withdrawalDate && (
-                  <div className="text-red-500 text-sm">
-                    {formik.errors.withdrawalDate}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">
-                  Approved Amount
-                </label>
-                <input
-                  type="number"
-                  placeholder="Approved Amount"
-                  name="approvedAmount"
-                  value={formik.values.approvedAmount || ""}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.touched.approvedAmount &&
-                    formik.errors.approvedAmount
-                      ? "customInputError"
-                      : formik.values.approvedAmount
-                      ? "filled"
-                      : ""
-                  }`}
-                />
-                {formik.touched.approvedAmount &&
-                  formik.errors.approvedAmount && (
-                    <div className="text-red-500 text-sm">
-                      {formik.errors.approvedAmount}
-                    </div>
-                  )}
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">
-                  Payment Status
-                </label>
-                <select
-                  name="paymentStatus"
-                  value={formik.values.paymentStatus}
-                  onChange={(e) => {
-                    formik.handleChange(e);
-                    if (e.target.value) {
-                      e.currentTarget.classList.add("filled");
-                    } else {
-                      e.currentTarget.classList.remove("filled");
-                    }
-                  }}
-                  onBlur={formik.handleBlur}
-                  className={`customSelect w-full ${
-                    formik.touched.paymentStatus && formik.errors.paymentStatus
-                      ? "customSelectError"
-                      : formik.values.paymentStatus
-                      ? "filled"
-                      : ""
-                  }`}
-                >
-                  <option value="">Select Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Paid">Paid</option>
-                </select>
-                {formik.touched.paymentStatus &&
-                  formik.errors.paymentStatus && (
-                    <div className="text-red-500 text-sm">
-                      {formik.errors.paymentStatus}
-                    </div>
-                  )}
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">
-                  Reference No
-                </label>
-                <input
-                  type="text"
-                  placeholder="Reference No"
-                  name="referenceNo"
-                  value={formik.values.referenceNo || ""}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.values.referenceNo ? "filled" : ""
-                  }`}
-                />
-              </div>
-              <div>
-                <label className="font-semibold text-gray-700">Remarks</label>
-                <textarea
-                  placeholder="Remarks"
-                  name="remarks"
-                  value={formik.values.remarks}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`customInput w-full ${
-                    formik.values.remarks ? "filled" : ""
-                  }`}
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="customBtn"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="customBtn">
-                  {editingWithdrawal ? "Update" : "Add"}
-                </button>
-              </div>
-            </form>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 relative overflow-y-auto max-h-[90vh]">
             <button
               onClick={() => setModalOpen(false)}
               className="absolute top-5 right-5 text-gray-500 hover:text-gray-600 text-2xl"
             >
               &times;
             </button>
+
+            {modalLoading || !activeRequest ? (
+              <div className="flex justify-center py-16">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold mb-1">{activeRequest.payment_request_id}</h2>
+                <p className="text-sm text-gray-500 mb-6">
+                  {activeRequest.vendor_name} &middot; {formatDate(activeRequest.date_from)} - {formatDate(activeRequest.date_to)}
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-500 mb-1">Order Amount</p>
+                    <p className="font-bold text-gray-800">{formatCurrency(preview.vendorTotal)}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-500 mb-1">Online Platform Charge</p>
+                    <p className="font-bold text-red-600">-{formatCurrency(preview.onlineCharge)}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-500 mb-1">COD Platform Charge</p>
+                    <p className="font-bold text-red-600">-{formatCurrency(activeRequest.cod_platform_charge)}</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-blue-600 mb-1">Release Amount</p>
+                    <p className="font-bold text-blue-700">{formatCurrency(preview.releaseAmount)}</p>
+                  </div>
+                </div>
+
+                {activeRequest.status !== "pending" && (
+                  <div className="mb-4 p-3 bg-green-50 rounded-lg text-sm text-green-800">
+                    Approved amount: <strong>{formatCurrency(activeRequest.approved_amount)}</strong>
+                    {activeRequest.admin_remarks && <> &middot; Remarks: {activeRequest.admin_remarks}</>}
+                  </div>
+                )}
+
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                  Orders {activeRequest.status === "pending" ? "(select to approve partially)" : ""}
+                </h3>
+                <div className="overflow-x-auto border rounded-lg mb-6">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {activeRequest.status === "pending" && <th className="px-3 py-2"></th>}
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Charge</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {activeRequest.orders_data?.map((order) => (
+                        <tr key={order.order_id} className={selectedOrderIds.includes(order.order_id) ? "bg-blue-50" : ""}>
+                          {activeRequest.status === "pending" && (
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedOrderIds.includes(order.order_id)}
+                                onChange={() => toggleOrder(order.order_id)}
+                                className="h-4 w-4 text-blue-600 rounded"
+                              />
+                            </td>
+                          )}
+                          <td className="px-3 py-2 font-medium">{order.order_number}</td>
+                          <td className="px-3 py-2 text-gray-600">{formatDate(order.created_at)}</td>
+                          <td className="px-3 py-2 text-gray-600">{order.billing_name}</td>
+                          <td className="px-3 py-2">{formatCurrency(order.vendor_total)}</td>
+                          <td className="px-3 py-2 text-red-600">-{formatCurrency(order.platform_charge)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {activeRequest.status === "pending" && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Remarks (optional)</label>
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="customInput w-full"
+                      rows={2}
+                      placeholder="Add a note for the vendor..."
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap justify-end gap-2 mt-4">
+                  {activeRequest.status === "pending" && (
+                    <>
+                      <button
+                        onClick={handleReject}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-medium disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleApprove(false)}
+                        disabled={actionLoading || selectedOrderIds.length === (activeRequest.orders_data?.length || 0)}
+                        className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Approve Selected
+                      </button>
+                      <button
+                        onClick={() => handleApprove(true)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                      >
+                        Approve Full Request
+                      </button>
+                    </>
+                  )}
+                  {activeRequest.status === "approved" && (
+                    <button
+                      onClick={handleMarkPaid}
+                      disabled={actionLoading}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
+                    >
+                      {actionLoading ? "Processing..." : "Mark as Paid"}
+                    </button>
+                  )}
+                  {(activeRequest.status === "paid" || activeRequest.status === "rejected") && (
+                    <span className={`px-4 py-2 rounded-lg text-sm font-medium ${statusStyle(activeRequest.status)}`}>
+                      {activeRequest.status === "paid" ? "Payment completed" : "This request was rejected"}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -520,4 +434,4 @@ const VendorWithdrawals = () => {
   );
 };
 
-export default VendorWithdrawals;
+export default VendorPaymentApprovals;

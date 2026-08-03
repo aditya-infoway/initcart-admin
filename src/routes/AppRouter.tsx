@@ -130,6 +130,7 @@ import RestaurantAdsManager from "../pages/Service Subscription Platform/Service
 import HotelAdsManager from "../pages/Service Subscription Platform/Services/HotelMarketingBanner";
 import SuperAdminAgentHierarchy from "../pages/MLM (Multi Level Marketing System)/Reports/adminAgentHierarchy";
 import Documents from "../pages/Profile/Documents";
+import AllVendorsOrderReport from "../pages/E-Commerce (Multi-Vendor)/Orders/orderpaymentreport";
 
 const AppRouter = () => (
   <BrowserRouter basename="/superadmin">
@@ -339,7 +340,7 @@ const AppRouter = () => (
 
         <Route path="/ledgerreport" element={<LedgerReport />} />
         <Route path="/Documents" element={<Documents/>}/>
-
+        <Route path="/orderpaymentreport" element={<AllVendorsOrderReport />} />
 
         {/* <Route path="/servicevendor-walletwithdrawals" element={<ServiceVendorWalletWithdrawals />} /> */}
 
