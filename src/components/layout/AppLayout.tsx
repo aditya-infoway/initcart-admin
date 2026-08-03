@@ -208,7 +208,7 @@ export const menuItems: MenuCategory[] = [
         submenu: [
           { name: "All Orders", to: "/filteredorders" },
           { name: "Order Profit Report", to: "/orderProfitReport" },
-
+          { name: "All Vendor Order Report", to: "/orderPaymentReport" },
         ],
       },
       {
