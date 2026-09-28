@@ -31,8 +31,11 @@ interface SuperAdmin {
   whatsapp: string;
   brochure_pdf: string;
   brochure_pdf_url: string;
+  apk_file: string;        // ✅ NEW
+  apk_file_url: string;
   _file?: File;
   _brochure_file?: File;
+  _apk_file?: File;
 }
 
 const Profile: React.FC = () => {
@@ -57,6 +60,8 @@ const Profile: React.FC = () => {
     whatsapp: "",
     brochure_pdf: "",
     brochure_pdf_url: "",
+    apk_file: "",         // ✅ NEW
+    apk_file_url: "",
   });
 
   const [credData, setCredData] = useState({
@@ -118,6 +123,62 @@ const Profile: React.FC = () => {
     }));
   };
 
+  const handleApkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isApk =
+      file.name.toLowerCase().endsWith('.apk') ||
+      file.type === 'application/vnd.android.package-archive';
+
+    if (!isApk) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File',
+        text: 'Please upload a valid .apk file only',
+      });
+      return;
+    }
+
+    if (file.size > 150 * 1024 * 1024) {
+      Swal.fire({
+        icon: 'error',
+        title: 'File Too Large',
+        text: 'APK file size should be less than 150MB',
+      });
+      return;
+    }
+
+    setAdmin((prev) => ({
+      ...prev,
+      apk_file: file.name,
+      _apk_file: file,
+      apk_file_url: URL.createObjectURL(file),
+    }));
+  };
+
+  const handleRemoveApk = () => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "This will remove the current APK file",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, remove it!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setAdmin((prev) => ({
+          ...prev,
+          apk_file: "",
+          apk_file_url: "",
+          _apk_file: undefined,
+        }));
+        Swal.fire('Removed!', 'APK file has been removed.', 'success');
+      }
+    });
+  };
+
   const handleRemoveBrochure = () => {
     Swal.fire({
       title: 'Are you sure?',
@@ -164,6 +225,7 @@ const Profile: React.FC = () => {
           ...res.data,
           profileImage: res.data.profile_image,
           brochure_pdf_url: res.data.brochure_pdf_url || "",
+          apk_file_url: res.data.apk_file_url || "",
         }));
       }
     });
@@ -193,6 +255,11 @@ const Profile: React.FC = () => {
       fd.append("brochure_pdf", admin._brochure_file);
     } else if (admin.brochure_pdf === "" && admin._brochure_file === undefined) {
       fd.append("brochure_pdf", "");
+    }
+    if (admin._apk_file) {
+      fd.append("apk_file", admin._apk_file);
+    } else if (admin.apk_file === "" && admin._apk_file === undefined) {
+      fd.append("apk_file", "");
     }
 
     try {
@@ -487,6 +554,69 @@ const Profile: React.FC = () => {
           </div>
         </div>
 
+
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-2xl font-semibold mb-6 border-b pb-2 text-gray-800">
+            Mobile App (APK)
+          </h3>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Upload your Android app APK file. This will be available for users to download from the website footer.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 cursor-pointer transition flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Upload APK
+                <input
+                  type="file"
+                  accept=".apk"
+                  onChange={handleApkUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {admin.apk_file && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-md">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    {admin.apk_file}
+                  </span>
+                  <button
+                    onClick={handleRemoveApk}
+                    className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {admin.apk_file_url && admin.apk_file_url !== "" && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                <a
+                  href={admin.apk_file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 underline text-sm flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Preview Uploaded APK
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-2xl font-semibold mb-2 border-b pb-2 text-gray-800">
             Superadmin Panel Login (Email & Password)
@@ -499,15 +629,6 @@ const Profile: React.FC = () => {
             </p>
           </div>
 
-          {/*
-            NOTE: This <form> has autoComplete="off" and each password/email
-            field below also carries its own explicit autoComplete override.
-            Chrome/Edge ignore a bare autoComplete="off" on password inputs in
-            some cases, so we additionally use non-standard values
-            ("new-password" / "one-time-code") and a name that doesn't match
-            common patterns — this reliably stops the browser from
-            auto-filling a previously saved password into "Current Password".
-          */}
           <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
