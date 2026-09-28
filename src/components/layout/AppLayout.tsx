@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FaBars, FaHeart } from "react-icons/fa";
+import { FaBars, FaHeart, FaQrcode } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toAbsoluteUrl } from "../../utils/reuseable";
 import { useAuthStore } from "../../store/authStore";
@@ -138,6 +138,17 @@ export const menuItems: MenuCategory[] = [
       },
     ],
   },
+      {
+    category: "QR-Code",
+    items: [
+      {
+        title: "Generate QR",
+        icon: <FaQrcode size={20} />,
+        to:"/qrlist",
+        submenu: [],
+      },
+    ],
+  },
   {
     category: "E-Commerce (Multi-Vendor)",
     items: [
@@ -209,6 +220,8 @@ export const menuItems: MenuCategory[] = [
           { name: "All Orders", to: "/filteredorders" },
           { name: "Order Profit Report", to: "/orderProfitReport" },
           { name: "All Vendor Order Report", to: "/orderPaymentReport" },
+          {name : "Orders Return Requests", to: "/orderreturn"},
+          {name : "Order Refund Management", to: "/refundlist"},
         ],
       },
       {

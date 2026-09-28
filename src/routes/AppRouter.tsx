@@ -131,6 +131,11 @@ import HotelAdsManager from "../pages/Service Subscription Platform/Services/Hot
 import SuperAdminAgentHierarchy from "../pages/MLM (Multi Level Marketing System)/Reports/adminAgentHierarchy";
 import Documents from "../pages/Profile/Documents";
 import AllVendorsOrderReport from "../pages/E-Commerce (Multi-Vendor)/Orders/orderpaymentreport";
+import QRCardList from "../pages/QRCode/qrlist";
+import AdminReturnRequestList from "../pages/return/AdminReturnRequestList";
+import AdminRefundList from "../pages/E-Commerce (Multi-Vendor)/Orders/refundlist";
+
+
 
 const AppRouter = () => (
   <BrowserRouter basename="/superadmin">
@@ -202,6 +207,7 @@ const AppRouter = () => (
         />
         <Route path="/paymentgatewaysetup" element={<PaymentGatewaySetup />} />
         <Route path="/returnandrefundpolicy" element={<ReturnRefundPolicy />} />
+        <Route path="/refundlist" element={<AdminRefundList/>}/>
 
         <Route path="/vendorwithdrawals" element={<VendorWithdrawals />} />
         <Route path="/transactionreports" element={<TransactionReports />} />
@@ -341,6 +347,10 @@ const AppRouter = () => (
         <Route path="/ledgerreport" element={<LedgerReport />} />
         <Route path="/Documents" element={<Documents/>}/>
         <Route path="/orderpaymentreport" element={<AllVendorsOrderReport />} />
+
+        <Route path="/qrlist" element={<QRCardList/>}/>
+        <Route path="/orderreturn" element={<AdminReturnRequestList/>}/>
+        
 
         {/* <Route path="/servicevendor-walletwithdrawals" element={<ServiceVendorWalletWithdrawals />} /> */}
 
