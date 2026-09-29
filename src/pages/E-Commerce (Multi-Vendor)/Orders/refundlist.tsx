@@ -20,30 +20,137 @@ interface RefundItem {
   created_at: string;
 }
 
-const TABS = [
-  { key: "pending", label: "Pending" },
-  { key: "failed", label: "Failed" },
-  { key: "processed", label: "Processed" },
-  { key: "all", label: "All" },
-];
+interface PaginationInfo {
+  count: number;
+  total_pages: number;
+  current_page: number;
+  page_size: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+interface Stats {
+  total: number;
+  pending: number;
+  processed: number;
+  failed: number;
+  total_amount: number;
+  pending_amount: number;
+  processed_amount: number;
+  failed_amount: number;
+}
+
+const EMPTY_STATS: Stats = {
+  total: 0, pending: 0, processed: 0, failed: 0,
+  total_amount: 0, pending_amount: 0, processed_amount: 0, failed_amount: 0,
+};
+
+const PAGE_SIZES = [10, 15, 25, 50];
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
+
+const formatDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+
+const statusStyle = (s: string) => {
+  switch (s) {
+    case "processed":
+      return "text-green-700 bg-green-50";
+    case "failed":
+      return "text-red-700 bg-red-50";
+    default:
+      return "text-yellow-700 bg-yellow-50";
+  }
+};
+
+const StatCard = ({
+  label, value, sub, color = "text-gray-900",
+}: { label: string; value: number | string; sub?: string; color?: string }) => (
+  <div className="p-4 rounded-lg border border-gray-200 bg-white">
+    <p className="text-xs text-gray-500 uppercase font-medium">{label}</p>
+    <p className={`text-2xl font-semibold mt-1 ${color}`}>{value}</p>
+    {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+  </div>
+);
+
+const Pagination = ({
+  pagination, onPage, onSize,
+}: { pagination: PaginationInfo; onPage: (p: number) => void; onSize: (s: number) => void }) => {
+  const { count, total_pages, current_page, page_size, has_next, has_previous } = pagination;
+  if (count === 0) return null;
+
+  const start = (current_page - 1) * page_size + 1;
+  const end = Math.min(current_page * page_size, count);
+
+  const from = Math.max(1, Math.min(current_page - 2, total_pages - 4));
+  const to = Math.min(total_pages, from + 4);
+  const pages: number[] = [];
+  for (let i = from; i <= to; i++) pages.push(i);
+
+  return (
+    <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-3 border-t border-gray-200 text-sm">
+      <div className="flex items-center gap-3 text-gray-600">
+        <span>Showing {start}–{end} of {count}</span>
+        <select
+          value={page_size}
+          onChange={(e) => onSize(Number(e.target.value))}
+          className="border border-gray-300 rounded px-2 py-1 text-sm"
+        >
+          {PAGE_SIZES.map((s) => (
+            <option key={s} value={s}>{s} / page</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-1">
+        <button disabled={!has_previous} onClick={() => onPage(current_page - 1)}
+          className="px-3 py-1 rounded border border-gray-300 disabled:opacity-40 hover:bg-gray-50">Prev</button>
+        {pages.map((p) => (
+          <button key={p} onClick={() => onPage(p)}
+            className={`px-3 py-1 rounded border ${
+              p === current_page ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50"
+            }`}>{p}</button>
+        ))}
+        <button disabled={!has_next} onClick={() => onPage(current_page + 1)}
+          className="px-3 py-1 rounded border border-gray-300 disabled:opacity-40 hover:bg-gray-50">Next</button>
+      </div>
+    </div>
+  );
+};
 
 const AdminRefundList = () => {
   const [refunds, setRefunds] = useState<RefundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending");
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const TABS = [
+    { key: "pending", label: "Pending", count: stats.pending },
+    { key: "failed", label: "Failed", count: stats.failed },
+    { key: "processed", label: "Processed", count: stats.processed },
+    { key: "all", label: "All", count: stats.total },
+  ];
 
   useEffect(() => {
     fetchRefunds();
-  }, [activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, page, pageSize]);
 
   const fetchRefunds = async () => {
     setLoading(true);
     try {
       const response = await apiClient.get("ecommerce/admin/refunds/", {
-        params: { status: activeTab },
+        params: { status: activeTab, page, page_size: pageSize },
       });
-      if (response.data.success) setRefunds(response.data.data);
+      if (response.data.success) {
+        setRefunds(response.data.data);
+        setPagination(response.data.pagination);
+        setStats(response.data.stats || EMPTY_STATS);
+      }
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -55,21 +162,9 @@ const AdminRefundList = () => {
     }
   };
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
-
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
-
-  const statusStyle = (s: string) => {
-    switch (s) {
-      case "processed":
-        return "text-green-700 bg-green-50";
-      case "failed":
-        return "text-red-700 bg-red-50";
-      default:
-        return "text-yellow-700 bg-yellow-50";
-    }
+  const changeTab = (key: string) => {
+    setActiveTab(key);
+    setPage(1);
   };
 
   const handleProcess = async (item: RefundItem) => {
@@ -108,26 +203,34 @@ const AdminRefundList = () => {
         title: "Error",
         text: error.response?.data?.message || "Something went wrong while processing the refund",
       });
+      fetchRefunds(); // 502 pe bhi failed status/stats refresh ho jaye
     } finally {
       setProcessingId(null);
     }
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total Refunds" value={stats.total} sub={formatCurrency(stats.total_amount)} />
+        <StatCard label="Pending" value={stats.pending} sub={formatCurrency(stats.pending_amount)} color="text-yellow-600" />
+        <StatCard label="Processed" value={stats.processed} sub={formatCurrency(stats.processed_amount)} color="text-green-600" />
+        <StatCard label="Failed" value={stats.failed} sub={formatCurrency(stats.failed_amount)} color="text-red-600" />
+      </div>
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Customer Refunds (Online Orders)</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => changeTab(t.key)}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium ${
                   activeTab === t.key ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                {t.label}
+                {t.label} ({t.count})
               </button>
             ))}
           </div>
@@ -197,6 +300,10 @@ const AdminRefundList = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {pagination && (
+          <Pagination pagination={pagination} onPage={setPage} onSize={(s) => { setPageSize(s); setPage(1); }} />
         )}
       </div>
     </div>

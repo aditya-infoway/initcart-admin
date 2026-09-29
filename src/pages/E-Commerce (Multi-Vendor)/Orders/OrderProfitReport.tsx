@@ -1,11 +1,11 @@
 // src/pages/admin/OrderProfitReport.tsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../api/apiClient";
 import {
   FaSearch, FaSync, FaBox, FaCheckCircle, FaClock,
   FaExclamationTriangle, FaFileAlt, FaTimes, FaChartPie,
-  FaRupeeSign, FaBuilding, FaUsers, FaStore, FaCalendarAlt,
-  FaFilter, FaChevronDown, FaChevronUp, FaChevronLeft, FaChevronRight,
+  FaRupeeSign, FaBuilding, FaUsers, FaCalendarAlt,
+  FaFilter, FaChevronLeft, FaChevronRight, FaUndo,
 } from "react-icons/fa";
 import { MdCancel, MdMonetizationOn } from "react-icons/md";
 import { HiClipboardCheck } from "react-icons/hi";
@@ -20,6 +20,8 @@ interface PageStats {
     total_agents_paid: number;
     total_company_profit: number;
     breakdown_agents: { mlm: number; pos: number; society: number };
+    total_refunded_amount: number;
+    pending_refund_amount: number;
   };
   order_counts: {
     total: number;
@@ -28,6 +30,7 @@ interface PageStats {
     distributed: number;
     pending: number;
   };
+  refund_counts: { processed: number; pending: number; failed: number };
 }
 
 interface OrderRow {
@@ -53,6 +56,15 @@ interface OrderItem {
   vendor_receivable: number;
   platform_profit: number;
   vendor_name: string;
+  item_status: string;
+  is_refunded: boolean;
+  refund: {
+    refund_id: string;
+    refund_amount: number;
+    status: string;
+    commission_reversed: boolean;
+    processed_at: string | null;
+  } | null;
 }
 
 interface MLMEntry {
@@ -63,7 +75,20 @@ interface MLMEntry {
   level: number;
   percentage: number;
   type: string;
+  is_reversal: boolean;
+  product_name: string | null;
   date: string;
+}
+
+interface RefundEntry {
+  refund_id: string;
+  product_name: string;
+  refund_amount: number;
+  status: "pending" | "processed" | "failed";
+  commission_reversed: boolean;
+  failure_reason: string | null;
+  processed_at: string | null;
+  created_at: string;
 }
 
 interface ProfitData {
@@ -91,15 +116,21 @@ interface ProfitData {
       username: string; is_active: boolean; status: string;
     } | null;
     mlm_commission_processed: boolean;
+    refund_status: "none" | "partially_refunded" | "fully_refunded";
+    total_refunded_amount: number;
+    total_refunded_profit: number;
+    refunded_items_count: number;
+    total_items_count: number;
   };
   config: {
     pos_percentage: number; service_percentage: number;
     mlm_percentage: number; company_percentage: number;
   };
   items: OrderItem[];
+  refunds: RefundEntry[];
   distribution: {
     mlm_chain: MLMEntry[];
-    seller_extra: MLMEntry | null;
+    extra_profit_entries: MLMEntry[];
     pools: { pos_pool: number; soc_pool: number; mlm_pool: number; config_co: number };
     paid: { mlm_paid: number; pos_paid: number; society_paid: number };
     undistributed: { mlm: number; pos: number; soc: number };
@@ -152,6 +183,12 @@ const LEVEL_STYLE: Record<number, string> = {
   4: "bg-pink-100 text-pink-800",
 };
 
+const REFUND_STATUS_STYLE: Record<string, string> = {
+  processed: "bg-green-50 text-green-700 border-green-200",
+  pending:   "bg-yellow-50 text-yellow-700 border-yellow-200",
+  failed:    "bg-red-50 text-red-700 border-red-200",
+};
+
 const getStatusIcon = (s: string) => {
   switch (s) {
     case "delivered":   return <FaCheckCircle className="text-green-600" />;
@@ -190,17 +227,12 @@ const Pagination: React.FC<{
   loading: boolean;
   onPageChange: (p: number) => void;
 }> = ({ page, totalPages, totalCount, loading, onPageChange }) => {
-  // Generate page numbers to show (max 5 buttons)
   const getPageNumbers = () => {
     const delta = 2;
     const range: number[] = [];
     const rangeWithDots: (number | "...")[] = [];
 
-    for (
-      let i = Math.max(2, page - delta);
-      i <= Math.min(totalPages - 1, page + delta);
-      i++
-    ) {
+    for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) {
       range.push(i);
     }
 
@@ -220,7 +252,6 @@ const Pagination: React.FC<{
 
   return (
     <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
-      {/* Left — record count */}
       <p className="text-sm text-gray-500">
         Showing{" "}
         <span className="font-semibold text-gray-700">{startRecord}–{endRecord}</span>
@@ -234,10 +265,8 @@ const Pagination: React.FC<{
         )}
       </p>
 
-      {/* Right — page buttons */}
       {totalPages > 1 && (
         <div className="flex items-center gap-1.5">
-          {/* Prev */}
           <button
             disabled={page === 1 || loading}
             onClick={() => onPageChange(page - 1)}
@@ -247,13 +276,10 @@ const Pagination: React.FC<{
             Prev
           </button>
 
-          {/* Page numbers */}
           <div className="flex items-center gap-1">
             {getPageNumbers().map((p, idx) =>
               p === "..." ? (
-                <span key={`dots-${idx}`} className="px-2 text-gray-400 text-sm select-none">
-                  …
-                </span>
+                <span key={`dots-${idx}`} className="px-2 text-gray-400 text-sm select-none">…</span>
               ) : (
                 <button
                   key={p}
@@ -271,7 +297,6 @@ const Pagination: React.FC<{
             )}
           </div>
 
-          {/* Next */}
           <button
             disabled={page >= totalPages || loading}
             onClick={() => onPageChange(page + 1)}
@@ -294,7 +319,7 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
   const [data, setData]     = useState<ProfitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
-  const [tab, setTab]       = useState<"report" | "items">("report");
+  const [tab, setTab]       = useState<"report" | "items" | "refunds">("report");
 
   useEffect(() => {
     (async () => {
@@ -310,6 +335,14 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
     })();
   }, [orderNumber]);
 
+  const refundBadge = (rs?: string) => {
+    if (rs === "fully_refunded")
+      return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Fully Refunded</span>;
+    if (rs === "partially_refunded")
+      return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Partially Refunded</span>;
+    return null;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
@@ -321,7 +354,10 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
               <FaChartPie className="text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900">Profit Breakdown Report</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-gray-900">Profit Breakdown Report</h2>
+                {data && refundBadge(data.profit_summary.refund_status)}
+              </div>
               <p className="text-xs font-mono text-gray-500">{orderNumber}</p>
             </div>
           </div>
@@ -348,7 +384,7 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
               {[
                 { l: "Order Amount",      v: fmt(data.order_info.final_amount),              c: "text-gray-900" },
                 { l: "Platform Profit",   v: fmt(data.profit_summary.total_platform_profit), c: "text-indigo-700" },
-                { l: "Agents Paid",       v: fmt(data.profit_summary.total_agents_paid),     c: "text-blue-700" },
+                { l: "Agents Paid (Net)", v: fmt(data.profit_summary.total_agents_paid),      c: "text-blue-700" },
                 { l: "Company Profit",    v: fmt(data.distribution.company.total),           c: "text-yellow-700" },
               ].map(({ l, v, c }) => (
                 <div key={l} className="bg-gray-50 rounded-xl p-3.5">
@@ -358,11 +394,28 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
               ))}
             </div>
 
+            {/* ── Refund summary strip (only if any refund exists) ── */}
+            {data.profit_summary.refund_status !== "none" && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-4 flex-wrap">
+                <FaUndo className="text-red-500" />
+                <div className="text-sm text-red-700">
+                  <span className="font-semibold">
+                    {data.profit_summary.refunded_items_count} of {data.profit_summary.total_items_count} items refunded
+                  </span>
+                  {" — "}
+                  <span>Refunded amount: <strong>{fmt(data.profit_summary.total_refunded_amount)}</strong></span>
+                  {" · "}
+                  <span>Platform profit reversed: <strong>{fmt(data.profit_summary.total_refunded_profit)}</strong></span>
+                </div>
+              </div>
+            )}
+
             {/* ── Tabs ── */}
             <div className="flex border-b border-gray-100">
               {[
                 { k: "report" as const, l: "Profit Report" },
                 { k: "items"  as const, l: `Items (${data.items.length})` },
+                { k: "refunds" as const, l: `Refunds (${data.refunds.length})` },
               ].map(t => (
                 <button key={t.k} onClick={() => setTab(t.k)}
                   className={`px-5 py-2.5 text-sm font-medium transition-all ${
@@ -435,21 +488,20 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                   <div className="border border-gray-200 rounded-xl overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
-                        {/* ← vertical lines on header via border-x */}
                         <tr className="divide-x divide-gray-200">
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Recipient</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Pool (Config%)</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actually Paid</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Undistributed</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
 
-                        {/* MLM Chain rows */}
+                        {/* MLM Chain rows — positive + reversal both shown, reversal in red */}
                         {data.distribution.mlm_chain.length > 0 ? (
                           data.distribution.mlm_chain.map((entry, i) => (
-                            <tr key={i} className="hover:bg-blue-50/30 divide-x divide-gray-200">
+                            <tr key={i} className={`divide-x divide-gray-200 ${entry.is_reversal ? "bg-red-50/40" : "hover:bg-blue-50/30"}`}>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -459,20 +511,24 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                                   </span>
                                   <div>
                                     <p className="font-medium text-gray-800 text-xs">{entry.agent_name}</p>
-                                    <p className="text-[10px] text-gray-400">@{entry.username}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                      @{entry.username}{entry.product_name ? ` · ${entry.product_name}` : ""}
+                                    </p>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  AGENT_TYPE_STYLE[entry.agent_type] || "bg-gray-100 text-gray-600"
+                                  entry.is_reversal
+                                    ? "bg-red-100 text-red-700"
+                                    : AGENT_TYPE_STYLE[entry.agent_type] || "bg-gray-100 text-gray-600"
                                 }`}>
-                                  MLM L{entry.level} · {entry.percentage}%
+                                  {entry.is_reversal ? "Refund Reversal" : `MLM L${entry.level} · ${entry.percentage}%`}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-right text-xs text-gray-500">—</td>
-                              <td className="px-4 py-3 text-right font-bold text-blue-700">
-                                {fmt(entry.amount)}
+                              <td className={`px-4 py-3 text-right font-bold ${entry.is_reversal ? "text-red-600" : "text-blue-700"}`}>
+                                {entry.is_reversal ? "- " : ""}{fmt(Math.abs(entry.amount))}
                               </td>
                               <td className="px-4 py-3 text-right text-xs text-gray-400">—</td>
                             </tr>
@@ -497,57 +553,48 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700">
-                                → Company
-                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700">→ Company</span>
                             </td>
-                            <td className="px-4 py-3 text-right text-xs text-gray-500">
-                              {fmt(data.distribution.pools.mlm_pool)}
-                            </td>
-                            <td className="px-4 py-3 text-right text-xs text-gray-400">
-                              {fmt(data.distribution.paid.mlm_paid)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-amber-700">
-                              {fmt(data.distribution.undistributed.mlm)}
-                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-500">{fmt(data.distribution.pools.mlm_pool)}</td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-400">{fmt(data.distribution.paid.mlm_paid)}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-amber-700">{fmt(data.distribution.undistributed.mlm)}</td>
                           </tr>
                         )}
 
-                        {/* POS Seller Extra */}
-                        {data.distribution.seller_extra ? (
-                          <tr className="hover:bg-purple-50/30 divide-x divide-gray-200">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-purple-500" />
-                                <div>
-                                  <p className="font-medium text-gray-800 text-xs">
-                                    {data.distribution.seller_extra.agent_name}
-                                  </p>
-                                  <p className="text-[10px] text-gray-400">
-                                    @{data.distribution.seller_extra.username}
-                                  </p>
+                        {/* ✅ CHANGED — extra_profit_entries is now a LIST (pos/society
+                            profit per item + their reversals), not a single object */}
+                        {data.distribution.extra_profit_entries.length > 0 ? (
+                          data.distribution.extra_profit_entries.map((entry, i) => (
+                            <tr key={`extra-${i}`} className={`divide-x divide-gray-200 ${entry.is_reversal ? "bg-red-50/40" : "hover:bg-purple-50/30"}`}>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${entry.is_reversal ? "bg-red-500" : "bg-purple-500"}`} />
+                                  <div>
+                                    <p className="font-medium text-gray-800 text-xs">{entry.agent_name}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                      @{entry.username}{entry.product_name ? ` · ${entry.product_name}` : ""}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700">
-                                {data.distribution.seller_extra.type === "pos_profit"
-                                  ? "POS Agent Profit"
-                                  : "Society Agent Profit"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right text-xs text-gray-500">
-                              {fmt(
-                                data.distribution.seller_extra.type === "pos_profit"
-                                  ? data.distribution.pools.pos_pool
-                                  : data.distribution.pools.soc_pool
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right font-bold text-purple-700">
-                              {fmt(data.distribution.seller_extra.amount)}
-                            </td>
-                            <td className="px-4 py-3 text-right text-xs text-gray-400">—</td>
-                          </tr>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                  entry.is_reversal ? "bg-red-100 text-red-700" : "bg-purple-100 text-purple-700"
+                                }`}>
+                                  {entry.is_reversal
+                                    ? "Refund Reversal"
+                                    : entry.type === "pos_profit" ? "POS Agent Profit" : "Society Agent Profit"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right text-xs text-gray-500">
+                                {fmt(entry.type === "pos_profit" ? data.distribution.pools.pos_pool : data.distribution.pools.soc_pool)}
+                              </td>
+                              <td className={`px-4 py-3 text-right font-bold ${entry.is_reversal ? "text-red-600" : "text-purple-700"}`}>
+                                {entry.is_reversal ? "- " : ""}{fmt(Math.abs(entry.amount))}
+                              </td>
+                              <td className="px-4 py-3 text-right text-xs text-gray-400">—</td>
+                            </tr>
+                          ))
                         ) : (
                           <>
                             {data.distribution.pools.pos_pool > 0 && (
@@ -563,13 +610,9 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                                     → Company (no POS agent)
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-right text-xs text-gray-500">
-                                  {fmt(data.distribution.pools.pos_pool)}
-                                </td>
+                                <td className="px-4 py-3 text-right text-xs text-gray-500">{fmt(data.distribution.pools.pos_pool)}</td>
                                 <td className="px-4 py-3 text-right text-xs text-gray-400">₹0.00</td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-600">
-                                  {fmt(data.distribution.pools.pos_pool)}
-                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-600">{fmt(data.distribution.pools.pos_pool)}</td>
                               </tr>
                             )}
                             {data.distribution.pools.soc_pool > 0 && (
@@ -585,13 +628,9 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                                     → Company (no Society agent)
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-right text-xs text-gray-500">
-                                  {fmt(data.distribution.pools.soc_pool)}
-                                </td>
+                                <td className="px-4 py-3 text-right text-xs text-gray-500">{fmt(data.distribution.pools.soc_pool)}</td>
                                 <td className="px-4 py-3 text-right text-xs text-gray-400">₹0.00</td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-600">
-                                  {fmt(data.distribution.pools.soc_pool)}
-                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-600">{fmt(data.distribution.pools.soc_pool)}</td>
                               </tr>
                             )}
                           </>
@@ -610,20 +649,14 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                               {data.config.company_percentage}% Fixed + Undistributed
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-xs text-gray-600">
-                            {fmt(data.distribution.pools.config_co)}
-                          </td>
+                          <td className="px-4 py-3 text-right text-xs text-gray-600">{fmt(data.distribution.pools.config_co)}</td>
                           <td className="px-4 py-3 text-right text-xs text-gray-500">—</td>
-                          <td className="px-4 py-3 text-right font-bold text-yellow-700 text-base">
-                            {fmt(data.distribution.company.total)}
-                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-yellow-700 text-base">{fmt(data.distribution.company.total)}</td>
                         </tr>
 
                         {/* Total row */}
                         <tr className="bg-gray-800 divide-x divide-gray-600">
-                          <td colSpan={3} className="px-4 py-3 text-sm font-bold text-white">
-                            Total Platform Profit
-                          </td>
+                          <td colSpan={3} className="px-4 py-3 text-sm font-bold text-white">Total Platform Profit</td>
                           <td colSpan={2} className="px-4 py-3 text-right font-bold text-white text-base">
                             {fmt(data.profit_summary.total_platform_profit)}
                           </td>
@@ -668,12 +701,12 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                 {/* ── Order meta ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   {[
-                    { l: "Customer",       v: data.order_info.customer_name },
-                    { l: "Phone",          v: data.order_info.customer_phone || "—" },
-                    { l: "Payment",        v: data.order_info.payment_method.toUpperCase() },
-                    { l: "Order Date",     v: fmtDate(data.order_info.order_date) },
-                    { l: "Discount",       v: fmt(data.order_info.discount_amount) },
-                    { l: "Shipping",       v: fmt(data.order_info.shipping_charge) },
+                    { l: "Customer",   v: data.order_info.customer_name },
+                    { l: "Phone",      v: data.order_info.customer_phone || "—" },
+                    { l: "Payment",    v: data.order_info.payment_method.toUpperCase() },
+                    { l: "Order Date", v: fmtDate(data.order_info.order_date) },
+                    { l: "Discount",   v: fmt(data.order_info.discount_amount) },
+                    { l: "Shipping",   v: fmt(data.order_info.shipping_charge) },
                   ].map(({ l, v }) => (
                     <div key={l} className="bg-gray-50 rounded-lg px-3 py-2.5">
                       <p className="text-gray-400 mb-0.5">{l}</p>
@@ -692,6 +725,7 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                   <thead className="bg-gray-50">
                     <tr className="divide-x divide-gray-200">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Product</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Qty</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Price</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Vendor Gets</th>
@@ -700,31 +734,97 @@ const ProfitModal: React.FC<{ orderNumber: string; onClose: () => void }> = ({
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {data.items.map((item, i) => (
-                      <tr key={i} className="hover:bg-gray-50 divide-x divide-gray-200">
+                      <tr key={i} className={`divide-x divide-gray-200 ${item.is_refunded ? "bg-red-50/40" : "hover:bg-gray-50"}`}>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-800 text-xs">{item.product_name}</p>
+                          <p className={`font-medium text-xs ${item.is_refunded ? "text-red-600 line-through" : "text-gray-800"}`}>
+                            {item.product_name}
+                          </p>
                           <p className="text-[10px] text-gray-400">{item.vendor_name}</p>
                         </td>
+                        <td className="px-4 py-3">
+                          {item.is_refunded ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
+                              Refunded{item.refund ? ` (${item.refund.status})` : ""}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 capitalize">
+                              {item.item_status}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right text-gray-600 font-medium">{item.quantity}</td>
-                        <td className="px-4 py-3 text-right text-gray-700">{fmt(item.total_price)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-purple-700">{fmt(item.vendor_receivable)}</td>
-                        <td className="px-4 py-3 text-right font-bold text-indigo-700">{fmt(item.platform_profit)}</td>
+                        <td className={`px-4 py-3 text-right ${item.is_refunded ? "text-red-500 line-through" : "text-gray-700"}`}>
+                          {fmt(item.total_price)}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-semibold ${item.is_refunded ? "text-red-400 line-through" : "text-purple-700"}`}>
+                          {fmt(item.vendor_receivable)}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-bold ${item.is_refunded ? "text-red-400 line-through" : "text-indigo-700"}`}>
+                          {fmt(item.platform_profit)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-gray-50 font-semibold text-sm">
                     <tr className="divide-x divide-gray-200">
-                      <td colSpan={3} className="px-4 py-3 text-gray-700">Total</td>
-                      <td className="px-4 py-3 text-right text-purple-700">
-                        {fmt(data.profit_summary.total_vendor_receivable)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-indigo-700">
-                        {fmt(data.profit_summary.total_platform_profit)}
-                      </td>
+                      <td colSpan={4} className="px-4 py-3 text-gray-700">Total</td>
+                      <td className="px-4 py-3 text-right text-purple-700">{fmt(data.profit_summary.total_vendor_receivable)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{fmt(data.profit_summary.total_platform_profit)}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+            )}
+
+            {/* ═══════════════ TAB: REFUNDS ═══════════════ */}
+            {tab === "refunds" && (
+              data.refunds.length === 0 ? (
+                <div className="py-16 text-center text-gray-400 text-sm">
+                  No refunds for this order.
+                </div>
+              ) : (
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="divide-x divide-gray-200">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Refund ID</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Product</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Commission Reversed</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Processed On</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {data.refunds.map((r, i) => (
+                        <tr key={i} className="hover:bg-gray-50 divide-x divide-gray-200">
+                          <td className="px-4 py-3 font-mono text-xs text-gray-700">{r.refund_id}</td>
+                          <td className="px-4 py-3 text-xs text-gray-700">{r.product_name}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-red-600">- {fmt(r.refund_amount)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${
+                              REFUND_STATUS_STYLE[r.status] || "bg-gray-50 text-gray-600 border-gray-200"
+                            }`}>
+                              {r.status}
+                            </span>
+                            {r.status === "failed" && r.failure_reason && (
+                              <p className="text-[10px] text-red-500 mt-1">{r.failure_reason}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-medium ${r.commission_reversed ? "text-green-600" : "text-gray-400"}`}>
+                              {r.commission_reversed ? "✓ Reversed" : "Pending"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500">
+                            {r.processed_at ? fmtDate(r.processed_at) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
 
           </div>
@@ -747,10 +847,8 @@ const OrderProfitReport: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
 
-  // totalPages derived from totalOrders + PAGE_SIZE
   const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
 
-  // Fetch header stats
   useEffect(() => {
     (async () => {
       try {
@@ -803,13 +901,11 @@ const OrderProfitReport: React.FC = () => {
     }
   }, [searchTerm, page, activeFilter]);
 
-  // search / filter change → reset to page 1
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); fetchOrders(searchTerm, 1, activeFilter); }, 400);
     return () => clearTimeout(t);
   }, [searchTerm, activeFilter]);
 
-  // page change
   useEffect(() => {
     fetchOrders(searchTerm, page, activeFilter);
   }, [page]);
@@ -822,6 +918,7 @@ const OrderProfitReport: React.FC = () => {
 
   const cs = pageStats?.stats;
   const oc = pageStats?.order_counts;
+  const rc = pageStats?.refund_counts;
 
   return (
     <div className="p-4 md:p-6 bg-[#F2F2F7] min-h-screen space-y-5">
@@ -846,7 +943,7 @@ const OrderProfitReport: React.FC = () => {
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="Total Platform Profit"
           value={statsLoading ? "..." : fmt(cs?.total_platform_profit || 0)}
@@ -857,7 +954,7 @@ const OrderProfitReport: React.FC = () => {
         <StatCard
           label="Total Agents Paid"
           value={statsLoading ? "..." : fmt(cs?.total_agents_paid || 0)}
-          sub={statsLoading ? "" : `MLM ${fmt(cs?.breakdown_agents.mlm || 0)}`}
+          sub={statsLoading ? "" : `MLM ${fmt(cs?.breakdown_agents.mlm || 0)} (net of reversals)`}
           icon={<FaUsers className="text-blue-600" />}
           border="border-blue-400" iconBg="bg-blue-50"
         />
@@ -875,17 +972,25 @@ const OrderProfitReport: React.FC = () => {
           icon={<FaChartPie className="text-indigo-600" />}
           border="border-indigo-400" iconBg="bg-indigo-50"
         />
+        {/* ✅ NEW — refunds stat card */}
+        <StatCard
+          label="Total Refunded"
+          value={statsLoading ? "..." : fmt(cs?.total_refunded_amount || 0)}
+          sub={statsLoading ? "" : `${rc?.processed || 0} processed · ${rc?.pending || 0} pending · ${rc?.failed || 0} failed`}
+          icon={<FaUndo className="text-red-500" />}
+          border="border-red-400" iconBg="bg-red-50"
+        />
       </div>
 
       {/* ── Order Count Badges ── */}
       {oc && (
         <div className="flex flex-wrap gap-2 text-xs">
           {[
-            { l: `All Orders: ${oc.total}`,          c: "bg-gray-100 text-gray-700" },
-            { l: `Agent Orders: ${oc.agent_orders}`,  c: "bg-blue-100 text-blue-700" },
-            { l: `Direct Sales: ${oc.direct_orders}`, c: "bg-gray-100 text-gray-500" },
-            { l: `Distributed: ${oc.distributed}`,    c: "bg-green-100 text-green-700" },
-            { l: `Pending: ${oc.pending}`,             c: "bg-yellow-100 text-yellow-700" },
+            { l: `All Orders: ${oc.total}`,           c: "bg-gray-100 text-gray-700" },
+            { l: `Agent Orders: ${oc.agent_orders}`,   c: "bg-blue-100 text-blue-700" },
+            { l: `Direct Sales: ${oc.direct_orders}`,  c: "bg-gray-100 text-gray-500" },
+            { l: `Distributed: ${oc.distributed}`,     c: "bg-green-100 text-green-700" },
+            { l: `Pending: ${oc.pending}`,              c: "bg-yellow-100 text-yellow-700" },
           ].map(({ l, c }) => (
             <span key={l} className={`px-3 py-1.5 rounded-full font-medium ${c}`}>{l}</span>
           ))}
@@ -897,7 +1002,6 @@ const OrderProfitReport: React.FC = () => {
 
         {/* Controls */}
         <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          {/* Search */}
           <div className="relative w-full sm:w-72">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
             <input
@@ -913,7 +1017,6 @@ const OrderProfitReport: React.FC = () => {
             )}
           </div>
 
-          {/* Filter chips */}
           <div className="flex flex-wrap gap-2">
             {FILTERS.map(f => (
               <button
@@ -942,7 +1045,6 @@ const OrderProfitReport: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                {/* ← vertical lines in main table header */}
                 <tr className="divide-x divide-gray-200">
                   <th className="px-5 py-3.5 text-left">Order ID</th>
                   <th className="px-5 py-3.5 text-left">Date</th>
@@ -961,27 +1063,16 @@ const OrderProfitReport: React.FC = () => {
                     onClick={() => setSelectedOrder(order.orderId)}
                     className="hover:bg-indigo-50/30 cursor-pointer transition-colors divide-x divide-gray-200"
                   >
-                    {/* Order ID */}
                     <td className="px-5 py-3.5">
                       <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">
                         {order.orderId}
                       </span>
                     </td>
-
-                    {/* Date */}
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-500">
-                      {fmtDate(order.orderDate)}
-                    </td>
-
-                    {/* Customer */}
+                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-500">{fmtDate(order.orderDate)}</td>
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-gray-800 text-xs">{order.customerName}</p>
-                      {order.customerPhone && (
-                        <p className="text-[10px] text-gray-400">{order.customerPhone}</p>
-                      )}
+                      {order.customerPhone && <p className="text-[10px] text-gray-400">{order.customerPhone}</p>}
                     </td>
-
-                    {/* Amount */}
                     <td className="px-5 py-3.5 text-right">
                       <p className="font-bold text-gray-800">{fmt(order.finalAmount)}</p>
                       <p className={`text-[10px] font-medium ${
@@ -990,8 +1081,6 @@ const OrderProfitReport: React.FC = () => {
                         {order.paymentStatus === "completed" ? "Paid" : "Unpaid"}
                       </p>
                     </td>
-
-                    {/* Order Status */}
                     <td className="px-5 py-3.5">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 w-fit ${
                         STATUS_STYLE[order.orderStatus] || "bg-gray-50 text-gray-600 border-gray-200"
@@ -1000,8 +1089,6 @@ const OrderProfitReport: React.FC = () => {
                         <span className="capitalize">{order.orderStatus}</span>
                       </span>
                     </td>
-
-                    {/* Agent */}
                     <td className="px-5 py-3.5">
                       {order.agentInfo ? (
                         <div>
@@ -1021,8 +1108,6 @@ const OrderProfitReport: React.FC = () => {
                         <span className="text-xs text-gray-400 italic">Direct Sale</span>
                       )}
                     </td>
-
-                    {/* Commission Status */}
                     <td className="px-5 py-3.5">
                       {order.commissionStatus === "distributed" && (
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
@@ -1040,8 +1125,6 @@ const OrderProfitReport: React.FC = () => {
                         </span>
                       )}
                     </td>
-
-                    {/* Report button */}
                     <td className="px-5 py-3.5 text-center">
                       <button
                         onClick={e => { e.stopPropagation(); setSelectedOrder(order.orderId); }}
@@ -1065,7 +1148,6 @@ const OrderProfitReport: React.FC = () => {
           </div>
         )}
 
-        {/* ── Pagination ── */}
         <Pagination
           page={page}
           totalPages={totalPages}
@@ -1075,7 +1157,6 @@ const OrderProfitReport: React.FC = () => {
         />
       </div>
 
-      {/* Profit Modal */}
       {selectedOrder && (
         <ProfitModal
           orderNumber={selectedOrder}
