@@ -134,11 +134,12 @@ export const menuItems: MenuCategory[] = [
           { name: "Slider Image", to: "/SliderImage" },
           { name: "Ads Manager", to: "/Ads" },
           { name: "Mobile Banner", to: "/BannerManager" },
+          { name: "Top Seller Management", to: "/top-seller-management" },
         ],
       },
     ],
   },
-      {
+  {
     category: "QR-Code",
     items: [
       {
@@ -222,6 +223,14 @@ export const menuItems: MenuCategory[] = [
           { name: "All Vendor Order Report", to: "/orderPaymentReport" },
           {name : "Orders Return Requests", to: "/orderreturn"},
           {name : "Order Refund Management", to: "/refundlist"},
+        ],
+      },
+      {
+        title: "COD Refund Management",
+        icon: <GiTakeMyMoney size={20} />,
+        submenu: [
+          {name: "Bank Accounts & Ledger", to:"/admin/refund-bank-accounts"},
+          {name: "COD Refund payment", to:"/admin/cod-refunds"},
         ],
       },
       {

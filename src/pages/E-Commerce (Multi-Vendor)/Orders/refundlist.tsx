@@ -1,5 +1,6 @@
 // pages/admin/refunds/AdminRefundList.tsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import apiClient from "../../../api/apiClient";
 
@@ -119,6 +120,7 @@ const Pagination = ({
 };
 
 const AdminRefundList = () => {
+  const navigate = useNavigate();
   const [refunds, setRefunds] = useState<RefundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending");
@@ -127,6 +129,8 @@ const AdminRefundList = () => {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   const TABS = [
     { key: "pending", label: "Pending", count: stats.pending },
@@ -135,17 +139,26 @@ const AdminRefundList = () => {
     { key: "all", label: "All", count: stats.total },
   ];
 
+  // debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   useEffect(() => {
     fetchRefunds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, page, pageSize]);
+  }, [activeTab, page, pageSize, search]);
 
   const fetchRefunds = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get("ecommerce/admin/refunds/", {
-        params: { status: activeTab, page, page_size: pageSize },
-      });
+      const params: any = { status: activeTab, page, page_size: pageSize };
+      if (search) params.search = search;
+      const response = await apiClient.get("ecommerce/admin/refunds/", { params });
       if (response.data.success) {
         setRefunds(response.data.data);
         setPagination(response.data.pagination);
@@ -203,7 +216,7 @@ const AdminRefundList = () => {
         title: "Error",
         text: error.response?.data?.message || "Something went wrong while processing the refund",
       });
-      fetchRefunds(); // 502 pe bhi failed status/stats refresh ho jaye
+      fetchRefunds();
     } finally {
       setProcessingId(null);
     }
@@ -211,6 +224,25 @@ const AdminRefundList = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
+      {/* Header with Back + Refresh */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md font-medium"
+          >
+            ← Back
+          </button>
+          <h1 className="text-xl font-semibold text-gray-800">Customer Refunds (Online Orders)</h1>
+        </div>
+        <button
+          onClick={fetchRefunds}
+          className="px-3 py-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md font-medium"
+        >
+          Refresh
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Refunds" value={stats.total} sub={formatCurrency(stats.total_amount)} />
         <StatCard label="Pending" value={stats.pending} sub={formatCurrency(stats.pending_amount)} color="text-yellow-600" />
@@ -220,7 +252,19 @@ const AdminRefundList = () => {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Customer Refunds (Online Orders)</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">Refunds</h2>
+
+          {/* Search */}
+          <div className="mb-3">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by Refund ID, Return ID, Order, Product, Vendor, Customer…"
+              className="w-full md:max-w-md px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
           <div className="flex gap-2 flex-wrap">
             {TABS.map((t) => (
               <button
@@ -241,7 +285,9 @@ const AdminRefundList = () => {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
           </div>
         ) : refunds.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">No refunds found.</div>
+          <div className="text-center py-16 text-gray-500">
+            {search ? "No refunds match your search." : "No refunds found."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full divide-y divide-gray-200">

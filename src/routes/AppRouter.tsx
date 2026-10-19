@@ -134,6 +134,11 @@ import AllVendorsOrderReport from "../pages/E-Commerce (Multi-Vendor)/Orders/ord
 import QRCardList from "../pages/QRCode/qrlist";
 import AdminReturnRequestList from "../pages/return/AdminReturnRequestList";
 import AdminRefundList from "../pages/E-Commerce (Multi-Vendor)/Orders/refundlist";
+import AdminCODRefundList from "../pages/E-Commerce (Multi-Vendor)/refunds/AdminCODRefundList";
+import AdminCODRefundForm from "../pages/E-Commerce (Multi-Vendor)/refunds/AdminCODRefundForm";
+import AdminRefundBankAccounts from "../pages/E-Commerce (Multi-Vendor)/refunds/AdminRefundBankAccounts";
+import AdminRefundBankLedger from "../pages/E-Commerce (Multi-Vendor)/refunds/AdminRefundBankLedger";
+import TopSellerManagement from "../pages/E-Commerce (Multi-Vendor)/Vendor Management/TopSellerManagement";
 
 
 
@@ -201,6 +206,12 @@ const AppRouter = () => (
         <Route path="/orderreport" element={<OrderReport />} />
         <Route path="/salesreport" element={<SalesReport />} />
 
+{/* refunds */}
+
+<Route path="/admin/cod-refunds" element={<AdminCODRefundList />} />
+<Route path="/admin/cod-refunds/new" element={<AdminCODRefundForm />} />
+<Route path="/admin/refund-bank-accounts" element={<AdminRefundBankAccounts />} />
+<Route path="/admin/refund-bank-accounts/:id/ledger" element={<AdminRefundBankLedger/>} />
         <Route
           path="/shippingconfiguration"
           element={<ShippingConfiguration />}
@@ -350,6 +361,7 @@ const AppRouter = () => (
 
         <Route path="/qrlist" element={<QRCardList/>}/>
         <Route path="/orderreturn" element={<AdminReturnRequestList/>}/>
+        <Route path="/top-seller-management" element={<TopSellerManagement />} />
         
 
         {/* <Route path="/servicevendor-walletwithdrawals" element={<ServiceVendorWalletWithdrawals />} /> */}
