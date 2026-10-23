@@ -530,7 +530,8 @@ const TopSellerManagement = () => {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-center py-16 text-gray-500 text-sm">No requests found. </div>
+          <div className="text-center py-16 text-gray-500 text-sm">No requests found. 
+          </div>
         ) : (
           <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-50 pointer-events-none" : ""}`}>
             <table className="w-full divide-y divide-gray-200">
